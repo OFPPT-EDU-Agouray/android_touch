@@ -84,8 +84,9 @@ public final class GestureHttpServer {
 
                 if ("GET".equals(request.method) && "/v1/display".equals(request.path)) {
                     AndroidTouchAccessibilityService.DisplayInfo info = service.getDisplayInfo();
+                    String density = String.format(Locale.US, "%.3f", info.density);
                     writeResponse(currentSocket.getOutputStream(), 200,
-                            "{\"width\":" + info.width + ",\"height\":" + info.height + ",\"density\":" + info.density + "}");
+                            "{\"width\":" + info.width + ",\"height\":" + info.height + ",\"density\":" + density + "}");
                     return;
                 }
 

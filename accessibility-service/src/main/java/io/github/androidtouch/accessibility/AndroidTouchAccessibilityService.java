@@ -108,13 +108,21 @@ public class AndroidTouchAccessibilityService extends AccessibilityService {
         if (root == null) {
             return false;
         }
-        AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
-        if (focused == null) {
-            return false;
+        try {
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused == null) {
+                return false;
+            }
+            try {
+                Bundle arguments = new Bundle();
+                arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text == null ? "" : text);
+                return focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+            } finally {
+                focused.recycle();
+            }
+        } finally {
+            root.recycle();
         }
-        Bundle arguments = new Bundle();
-        arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text == null ? "" : text);
-        return focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
     }
 
     public boolean performKey(String action) throws GestureParseException {
