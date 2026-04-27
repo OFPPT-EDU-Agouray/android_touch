@@ -63,6 +63,40 @@ curl -d '[{"type":"down","contact":0,"x":100,"y":100},{"type":"delay","value":50
   http://localhost:9889/v1/touch
 ```
 
+## High-level convenience endpoints
+
+These wrap the gesture engine with simpler request shapes that are easier
+for automation (and AI agents) to drive than composing raw `down`/`move`/`up`
+arrays. All POST bodies are a single JSON object. Responses are
+`{"status":"completed"}` on success or `{"error":"..."}` with a 4xx/5xx code.
+
+```bash
+# Single tap
+curl -d '{"x":540,"y":1200}' http://localhost:9889/v1/tap
+
+# Swipe (defaults to 300ms duration)
+curl -d '{"x1":540,"y1":2000,"x2":540,"y2":600,"duration_ms":250}' \
+  http://localhost:9889/v1/swipe
+
+# Replace text in the currently focused input field
+curl -d '{"text":"hello world"}' http://localhost:9889/v1/text
+
+# Global key actions: home, back, recents, notifications, quick_settings,
+# power_dialog, lock_screen (API 28+), take_screenshot (API 28+).
+curl -d '{"action":"home"}' http://localhost:9889/v1/key
+
+# Launch an installed app by package name
+curl -d '{"package":"com.android.settings"}' http://localhost:9889/v1/launch
+
+# Read display geometry (pixels and density)
+curl http://localhost:9889/v1/display
+# {"width":1080,"height":2400,"density":2.625}
+
+# Read the foreground app (last observed window-state-changed event)
+curl http://localhost:9889/v1/foreground
+# {"package":"com.android.settings","activity":"com.android.settings.Settings"}
+```
+
 ## Supported command semantics
 
 Supported commands:

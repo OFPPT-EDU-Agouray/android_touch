@@ -3,3 +3,7 @@ cmake-build-debug
 obj
 .vscode/
 blahblahblah
+.gradle/
+build/
+*.iml
+local.properties
