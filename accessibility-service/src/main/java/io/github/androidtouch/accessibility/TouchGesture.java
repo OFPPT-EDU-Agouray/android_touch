@@ -11,6 +11,7 @@ import org.json.JSONObject;
 
 public final class TouchGesture {
     private static final int MAX_CONTACTS = 10;
+    private static final int MAX_STROKES = 10;
     private static final long MAX_DELAY_MS = 60_000L;
     private static final long MAX_GESTURE_DURATION_MS = 60_000L;
 
@@ -126,6 +127,9 @@ public final class TouchGesture {
             }
             if (currentTimeMs > MAX_GESTURE_DURATION_MS) {
                 throw new GestureParseException("Gesture duration must not exceed " + MAX_GESTURE_DURATION_MS + "ms");
+            }
+            if (completedStrokes.size() > MAX_STROKES) {
+                throw new GestureParseException("Gesture must not contain more than " + MAX_STROKES + " strokes");
             }
             return new TouchGesture(new ArrayList<>(completedStrokes));
         }

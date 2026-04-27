@@ -54,6 +54,7 @@ public final class GestureHttpServer {
                     continue;
                 }
                 return;
+            } catch (RuntimeException ignored) {
             }
         }
     }
@@ -61,42 +62,47 @@ public final class GestureHttpServer {
     private void handle(Socket socket) {
         try (Socket currentSocket = socket) {
             currentSocket.setSoTimeout(30_000);
-            HttpRequest request = readRequest(currentSocket.getInputStream());
-            if ("GET".equals(request.method) && ("/health".equals(request.path) || "/v1/health".equals(request.path))) {
-                writeResponse(currentSocket.getOutputStream(), 200, "{\"status\":\"ok\",\"backend\":\"accessibility\"}");
-                return;
-            }
+            try {
+                HttpRequest request = readRequest(currentSocket.getInputStream());
+                if ("GET".equals(request.method) && ("/health".equals(request.path) || "/v1/health".equals(request.path))) {
+                    writeResponse(currentSocket.getOutputStream(), 200, "{\"status\":\"ok\",\"backend\":\"accessibility\"}");
+                    return;
+                }
 
-            if (!"POST".equals(request.method)) {
-                writeResponse(currentSocket.getOutputStream(), 405, "{\"error\":\"method_not_allowed\"}");
-                return;
-            }
+                if (!"POST".equals(request.method)) {
+                    writeResponse(currentSocket.getOutputStream(), 405, "{\"error\":\"method_not_allowed\"}");
+                    return;
+                }
 
-            if (!"/".equals(request.path) && !"/v1/touch".equals(request.path)) {
-                writeResponse(currentSocket.getOutputStream(), 404, "{\"error\":\"not_found\"}");
-                return;
-            }
+                if (!"/".equals(request.path) && !"/v1/touch".equals(request.path)) {
+                    writeResponse(currentSocket.getOutputStream(), 404, "{\"error\":\"not_found\"}");
+                    return;
+                }
 
-            AndroidTouchAccessibilityService service = AndroidTouchAccessibilityService.getInstance();
-            if (service == null) {
-                writeResponse(currentSocket.getOutputStream(), 503, "{\"error\":\"accessibility_service_not_connected\"}");
-                return;
-            }
+                AndroidTouchAccessibilityService service = AndroidTouchAccessibilityService.getInstance();
+                if (service == null) {
+                    writeResponse(currentSocket.getOutputStream(), 503, "{\"error\":\"accessibility_service_not_connected\"}");
+                    return;
+                }
 
-            TouchGesture gesture = TouchGesture.fromJson(request.body);
-            GestureResult result = service.dispatch(gesture);
-            if (result.isSuccess()) {
-                writeResponse(currentSocket.getOutputStream(), 200, "{\"status\":\"completed\"}");
-            } else {
-                writeResponse(currentSocket.getOutputStream(), 409, "{\"error\":\"" + jsonEscape(result.getMessage()) + "\"}");
+                TouchGesture gesture = TouchGesture.fromJson(request.body);
+                GestureResult result = service.dispatch(gesture);
+                if (result.isSuccess()) {
+                    writeResponse(currentSocket.getOutputStream(), 200, "{\"status\":\"completed\"}");
+                } else {
+                    writeResponse(currentSocket.getOutputStream(), 409, "{\"error\":\"" + jsonEscape(result.getMessage()) + "\"}");
+                }
+            } catch (GestureParseException exception) {
+                writeError(currentSocket, 400, exception.getMessage());
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                writeError(currentSocket, 500, "gesture dispatch interrupted");
+            } catch (IOException exception) {
+                writeError(currentSocket, 500, exception.getMessage());
+            } catch (RuntimeException exception) {
+                writeError(currentSocket, 500, exception.getMessage());
             }
-        } catch (GestureParseException exception) {
-            writeError(socket, 400, exception.getMessage());
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            writeError(socket, 500, "gesture dispatch interrupted");
         } catch (IOException exception) {
-            writeError(socket, 500, exception.getMessage());
         }
     }
 
