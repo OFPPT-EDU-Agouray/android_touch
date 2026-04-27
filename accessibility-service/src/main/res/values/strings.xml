@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">android_touch Accessibility</string>
+    <string name="accessibility_service_label">android_touch gesture service</string>
+    <string name="accessibility_service_description">Receives local JSON touch commands and dispatches them through Android Accessibility gestures.</string>
+    <string name="status_waiting">Enable the accessibility service, then use ADB port forwarding to send touch JSON to localhost:9889.</string>
+</resources>
