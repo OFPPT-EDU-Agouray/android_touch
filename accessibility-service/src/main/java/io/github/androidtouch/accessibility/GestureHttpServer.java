@@ -15,7 +15,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.util.Log;
+
 public final class GestureHttpServer {
+    private static final String TAG = "GestureHttpServer";
     private static final int MAX_BODY_BYTES = 1024 * 1024;
 
     private final int port;
@@ -54,7 +57,8 @@ public final class GestureHttpServer {
                     continue;
                 }
                 return;
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException exception) {
+                Log.e(TAG, "unexpected error while serving request", exception);
             }
         }
     }
