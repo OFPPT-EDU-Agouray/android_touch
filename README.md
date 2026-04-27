@@ -24,6 +24,37 @@ as taps or complex gestures.
 
 Android touch is built upon libevdev to communicate with touch input device.
 
+## Non-root Accessibility Service backend
+
+Modern stock Android devices often block direct writes to `/dev/input` from
+ADB-launched native binaries. For non-rooted devices, this repository now also
+includes an Android Accessibility Service backend in `accessibility-service/`.
+It accepts the same JSON gesture command format over an ADB-forwarded localhost
+HTTP port and dispatches gestures with Android's
+`AccessibilityService.dispatchGesture` API.
+
+Build and install the APK:
+
+```bash
+$ ./gradlew :accessibility-service:assembleDebug
+$ adb install -r accessibility-service/build/outputs/apk/debug/accessibility-service-debug.apk
+$ adb shell am start -n io.github.androidtouch.accessibility/.MainActivity
+```
+
+Enable **android_touch gesture service** in the device Accessibility settings,
+then forward the local port:
+
+```bash
+$ adb forward tcp:9889 tcp:9889
+```
+
+You can then send the existing JSON touch requests to `http://localhost:9889/`
+or the explicit endpoint `http://localhost:9889/v1/touch`.
+
+See `accessibility-service/README.md` for setup details and limitations. The
+native libevdev backend remains available for rooted, userdebug, or lab devices
+where raw input-device access is allowed.
+
 ## How do I use it?
 
 #### Setting up device
