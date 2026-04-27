@@ -20,8 +20,7 @@ public class AndroidTouchAccessibilityService extends AccessibilityService {
 
     private GestureHttpServer server;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private volatile String lastForegroundPackage;
-    private volatile String lastForegroundClass;
+    private volatile ForegroundInfo foreground = new ForegroundInfo(null, null);
 
     public static AndroidTouchAccessibilityService getInstance() {
         return instance;
@@ -46,12 +45,10 @@ public class AndroidTouchAccessibilityService extends AccessibilityService {
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             CharSequence pkg = event.getPackageName();
             CharSequence cls = event.getClassName();
-            if (pkg != null) {
-                lastForegroundPackage = pkg.toString();
-            }
-            if (cls != null) {
-                lastForegroundClass = cls.toString();
-            }
+            ForegroundInfo current = foreground;
+            String newPkg = pkg != null ? pkg.toString() : current.packageName;
+            String newCls = cls != null ? cls.toString() : current.className;
+            foreground = new ForegroundInfo(newPkg, newCls);
         }
     }
 
@@ -184,7 +181,7 @@ public class AndroidTouchAccessibilityService extends AccessibilityService {
     }
 
     public ForegroundInfo getForeground() {
-        return new ForegroundInfo(lastForegroundPackage, lastForegroundClass);
+        return foreground;
     }
 
     private GestureResult dispatchInternal(GestureDescription description) throws InterruptedException {
