@@ -7,3 +7,13 @@ blahblahblah
 build/
 *.iml
 local.properties
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+

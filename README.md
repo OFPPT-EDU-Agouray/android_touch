@@ -51,8 +51,27 @@ $ adb forward tcp:9889 tcp:9889
 You can then send the existing JSON touch requests to `http://localhost:9889/`
 or the explicit endpoint `http://localhost:9889/v1/touch`.
 
-See `accessibility-service/README.md` for setup details and limitations. The
-native libevdev backend remains available for rooted, userdebug, or lab devices
+The Accessibility backend also exposes higher-level endpoints for LLM agents:
+
+- **Perception (Phase 2)** — `GET /v1/ui_tree`, `GET /v1/focused`,
+  `POST /v1/find`, `POST /v1/click_node`, `POST /v1/long_click_node`,
+  `POST /v1/scroll_to`. Lets an agent act on UI elements by reference instead
+  of by pixel.
+- **Vision (Phase 3)** — `GET /v1/screenshot` (PNG/JPEG, with optional `scale`,
+  `quality`, and an `annotated=true` overlay drawing element bounds + view
+  IDs). Requires Android 11+.
+- **Agent SDK + MCP (Phase 4)** — a typed Python SDK in
+  [`python_api/`](python_api/) (`Device`, `AsyncDevice`, `android-touch`
+  CLI) and a [FastMCP](https://modelcontextprotocol.io) server in
+  [`mcp_server/`](mcp_server/) (`android-touch-mcp`) that exposes each SDK
+  method as an LLM tool. Works with any MCP-compatible runtime
+  (Claude Desktop, Cursor, Continue, Devin, custom agents).
+
+See `accessibility-service/README.md` for endpoint-by-endpoint details,
+`python_api/README.md` for the Python SDK, and `mcp_server/README.md` for
+the MCP server.
+
+The native libevdev backend remains available for rooted, userdebug, or lab devices
 where raw input-device access is allowed.
 
 ## How do I use it?
