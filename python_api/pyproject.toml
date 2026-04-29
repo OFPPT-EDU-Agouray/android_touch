@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "android-touch"
+version = "0.4.0"
+description = "Python SDK for the android_touch accessibility HTTP server"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "android_touch contributors" },
+]
+keywords = ["android", "accessibility", "automation", "agent", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "respx>=0.21",
+]
+
+[project.scripts]
+android-touch = "android_touch.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/OFPPT-EDU-Agouray/android_touch"
+Source = "https://github.com/OFPPT-EDU-Agouray/android_touch"
+
+[tool.hatch.build.targets.wheel]
+packages = ["android_touch"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "android_touch/**",
+    "tests/**",
+    "README.md",
+    "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # line length is handled by the formatter
+    "UP006", # keep Optional/List aliases — minSDK supports 3.10+ which still accepts them
+    "UP007",
+    "B008",  # argparse's add_argument default factories are fine
+]

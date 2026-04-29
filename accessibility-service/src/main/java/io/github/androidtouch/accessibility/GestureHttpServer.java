@@ -93,7 +93,7 @@ public final class GestureHttpServer {
 
         // Health
         if ("GET".equals(request.method) && ("/health".equals(request.path) || "/v1/health".equals(request.path))) {
-            writeResponse(out, 200, "{\"status\":\"ok\",\"backend\":\"accessibility\",\"phase\":2}");
+            writeResponse(out, 200, "{\"status\":\"ok\",\"backend\":\"accessibility\",\"phase\":3}");
             return;
         }
 
@@ -171,6 +171,12 @@ public final class GestureHttpServer {
             return;
         }
 
+        // Phase 3: vision
+        if ("GET".equals(request.method) && "/v1/screenshot".equals(request.path)) {
+            handleScreenshot(request, out, service);
+            return;
+        }
+
         // Method-not-allowed for known paths, otherwise 404
         if (isKnownPath(request.path)) {
             writeResponse(out, 405, "{\"error\":\"method_not_allowed\"}");
@@ -196,7 +202,8 @@ public final class GestureHttpServer {
                 || "/v1/click_node".equals(p)
                 || "/v1/long_click_node".equals(p)
                 || "/v1/scroll_to".equals(p)
-                || "/v1/focused".equals(p);
+                || "/v1/focused".equals(p)
+                || "/v1/screenshot".equals(p);
     }
 
     // ------------- handlers -----------------------------------------------
@@ -352,6 +359,49 @@ public final class GestureHttpServer {
         }
     }
 
+    private void handleScreenshot(HttpRequest request, OutputStream out, AndroidTouchAccessibilityService service)
+            throws IOException {
+        String format = request.query.get("format");
+        if (format == null || format.isEmpty()) {
+            format = Screenshotter.FORMAT_PNG;
+        }
+        if (!Screenshotter.FORMAT_PNG.equalsIgnoreCase(format)
+                && !Screenshotter.FORMAT_JPEG.equalsIgnoreCase(format)) {
+            writeJsonError(out, 400, "format must be 'png' or 'jpeg'");
+            return;
+        }
+        int quality = parseIntQuery(request.query, "quality", 90);
+        if (quality < 1 || quality > 100) {
+            writeJsonError(out, 400, "quality must be between 1 and 100");
+            return;
+        }
+        float scale = parseFloatQuery(request.query, "scale", 1.0f);
+        if (scale <= 0f || scale > 1.0f) {
+            writeJsonError(out, 400, "scale must be in (0, 1]");
+            return;
+        }
+        boolean annotated = parseBoolQuery(request.query, "annotated", false);
+
+        Screenshotter shooter = new Screenshotter(service);
+        try {
+            Screenshotter.Encoded encoded = shooter.capture(format, quality, scale, annotated);
+            writeBinaryResponse(out, 200, encoded.contentType, encoded.bytes,
+                    new String[][]{
+                            {"X-Image-Width", Integer.toString(encoded.width)},
+                            {"X-Image-Height", Integer.toString(encoded.height)}
+                    });
+        } catch (Screenshotter.CaptureException exception) {
+            int status = "not_supported".equals(exception.code) ? 501
+                    : "capture_timeout".equals(exception.code) ? 504
+                    : 500;
+            writeResponse(out, status,
+                    "{\"error\":\"" + jsonEscape(exception.code) + "\",\"message\":\""
+                            + jsonEscape(String.valueOf(exception.getMessage())) + "\"}");
+        } catch (RuntimeException exception) {
+            writeJsonError(out, 500, "screenshot_failed: " + exception.getMessage());
+        }
+    }
+
     private void writeGestureResult(OutputStream out, GestureResult result) throws IOException {
         if (result.isSuccess()) {
             writeResponse(out, 200, "{\"status\":\"completed\"}");
@@ -420,6 +470,18 @@ public final class GestureHttpServer {
             return defaultValue;
         }
         return "true".equalsIgnoreCase(value) || "1".equals(value) || "yes".equalsIgnoreCase(value);
+    }
+
+    private static float parseFloatQuery(Map<String, String> query, String key, float defaultValue) {
+        String value = query.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Float.parseFloat(value);
+        } catch (NumberFormatException exception) {
+            return defaultValue;
+        }
     }
 
     private HttpRequest readRequest(InputStream inputStream) throws IOException {
@@ -565,6 +627,28 @@ public final class GestureHttpServer {
         outputStream.flush();
     }
 
+    private void writeBinaryResponse(OutputStream outputStream, int statusCode, String contentType,
+                                     byte[] bytes, String[][] extraHeaders) throws IOException {
+        String statusText = statusText(statusCode);
+        StringBuilder headers = new StringBuilder(128);
+        headers.append("HTTP/1.1 ").append(statusCode).append(' ').append(statusText).append("\r\n")
+                .append("Content-Type: ").append(contentType).append("\r\n")
+                .append("Content-Length: ").append(bytes.length).append("\r\n")
+                .append("Connection: close\r\n");
+        if (extraHeaders != null) {
+            for (String[] kv : extraHeaders) {
+                if (kv == null || kv.length != 2 || kv[0] == null || kv[1] == null) {
+                    continue;
+                }
+                headers.append(kv[0]).append(": ").append(kv[1]).append("\r\n");
+            }
+        }
+        headers.append("\r\n");
+        outputStream.write(headers.toString().getBytes(StandardCharsets.UTF_8));
+        outputStream.write(bytes);
+        outputStream.flush();
+    }
+
     private String statusText(int statusCode) {
         switch (statusCode) {
             case 200:
@@ -577,8 +661,12 @@ public final class GestureHttpServer {
                 return "Method Not Allowed";
             case 409:
                 return "Conflict";
+            case 501:
+                return "Not Implemented";
             case 503:
                 return "Service Unavailable";
+            case 504:
+                return "Gateway Timeout";
             default:
                 return "Internal Server Error";
         }

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "android-touch-mcp"
+version = "0.4.0"
+description = "MCP server exposing the android_touch accessibility SDK as LLM tools"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "android_touch contributors" },
+]
+keywords = ["android", "accessibility", "automation", "mcp", "llm", "agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "android-touch>=0.4.0",
+    "mcp>=1.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+android-touch-mcp = "android_touch_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/OFPPT-EDU-Agouray/android_touch"
+Source = "https://github.com/OFPPT-EDU-Agouray/android_touch"
+
+[tool.hatch.build.targets.wheel]
+packages = ["android_touch_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["android_touch_mcp/**", "README.md", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501", "UP006", "UP007", "B008"]

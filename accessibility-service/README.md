@@ -12,7 +12,7 @@ where the native `/dev/input` path is blocked.
 ## What's in this build
 
 - **Phase 1** — touch / gesture dispatch (`POST /` and `POST /v1/touch`).
-- **Phase 2 (new)** — perception. The agent can ask "what's on screen?" and
+- **Phase 2** — perception. The agent can ask "what's on screen?" and
   act on UI elements by reference instead of pixel coordinates:
   - `GET  /v1/ui_tree`         — serialized AccessibilityNodeInfo tree
   - `GET  /v1/focused`         — currently-input-focused node
@@ -20,6 +20,11 @@ where the native `/dev/input` path is blocked.
   - `POST /v1/click_node`      — `performAction(ACTION_CLICK)` on a matched node
   - `POST /v1/long_click_node` — `performAction(ACTION_LONG_CLICK)`
   - `POST /v1/scroll_to`       — recursive `ACTION_SCROLL_FORWARD` until match
+- **Phase 3 (new)** — vision.
+  - `GET  /v1/screenshot`      — PNG/JPEG bytes of the current screen via
+    `AccessibilityService.takeScreenshot()` (Android 11+). Supports
+    `format=png|jpeg`, `quality=1..100`, `scale=0..1`, and an `annotated=true`
+    overlay drawing element bounds + view IDs.
 
 ## Build
 
@@ -43,20 +48,23 @@ adb shell am start -n io.github.androidtouch.accessibility/.MainActivity
 On the device, tap **Open Accessibility settings** and enable
 **android_touch gesture service**.
 
-> **Important:** Phase 2 requires `canRetrieveWindowContent="true"` in
-> `accessibility_service_config.xml` (already enabled in this build). The user
-> will see this on the Accessibility settings page as
-> "Observe your actions / Retrieve window content."
+> **Important:** Phase 2 requires `canRetrieveWindowContent="true"` and Phase 3
+> requires `canTakeScreenshot="true"` in `accessibility_service_config.xml`
+> (both enabled in this build). The user will see these on the Accessibility
+> settings page as "Observe your actions / Retrieve window content" and
+> "Take screenshots / Capture screen content."
 >
-> If you re-enable the service after upgrading from Phase 1, the user must
-> *toggle off and on again* so Android picks up the new flag.
+> Whenever new accessibility flags are added, the user must *toggle the
+> service off and on* in Accessibility settings so Android picks them up. If
+> `/v1/screenshot` returns `{"error":"capture_failed"}` immediately after
+> upgrading from Phase 2, that's the cause.
 
 ## Connect from the host
 
 ```bash
 adb forward tcp:9889 tcp:9889
 curl http://localhost:9889/health
-# → {"status":"ok","backend":"accessibility","phase":2}
+# → {"status":"ok","backend":"accessibility","phase":3}
 ```
 
 ---
@@ -190,6 +198,63 @@ If no scrollable container exists: `"error": "no_scrollable"`.
 
 ---
 
+## Phase 3 — vision
+
+### `GET /v1/screenshot`
+
+Captures the current screen via
+`AccessibilityService.takeScreenshot(Display.DEFAULT_DISPLAY, ...)` and returns
+the encoded image bytes. Requires Android 11 (API 30) or later.
+
+Query parameters:
+
+| param       | type   | default | meaning                                                       |
+|-------------|--------|---------|---------------------------------------------------------------|
+| `format`    | string | `png`   | `png` or `jpeg`                                               |
+| `quality`   | int    | 90      | JPEG quality 1–100 (ignored for PNG)                          |
+| `scale`     | float  | 1.0     | downsample factor in (0, 1]; useful for token efficiency      |
+| `annotated` | bool   | false   | draw bounds + view-id labels for clickable / focusable / text |
+
+Response:
+
+- `Content-Type: image/png` or `image/jpeg`
+- `X-Image-Width`, `X-Image-Height` headers carry the encoded dimensions
+- Body is the raw image
+
+Errors:
+
+| HTTP | error code        | meaning                                                                |
+|------|-------------------|------------------------------------------------------------------------|
+| 400  | (json error body) | invalid `format` / `quality` / `scale`                                 |
+| 501  | `not_supported`   | running on pre-Android-11; accessibility takeScreenshot unavailable    |
+| 504  | `capture_timeout` | system did not deliver a frame within 5 s (often a security overlay)   |
+| 500  | `capture_failed`, `wrap_failed`, `copy_failed`, `encode_failed`, `capture_threw` | low-level capture / bitmap problem |
+
+Usage:
+
+```bash
+# Plain PNG
+curl -o screen.png http://localhost:9889/v1/screenshot
+
+# Compressed JPEG, half-size, with a UI overlay drawn on top
+curl -o annotated.jpg \
+  'http://localhost:9889/v1/screenshot?format=jpeg&quality=70&scale=0.5&annotated=true'
+```
+
+The `annotated=true` overlay is intended for LLM consumption: green rectangles
+are clickable, blue are focusable-but-not-clickable, amber have visible text.
+Labels are the trailing segment of `view_id`, falling back to
+`content-description`, then visible text. Capped at 400 elements per frame.
+
+> **Note on cropped / blank frames.** When the device shows a system overlay
+> with `FLAG_SECURE` (e.g. some banking apps, the lock screen, certain DRM
+> video players), `takeScreenshot` returns the requested frame but the
+> protected window is blacked out. This is enforced by the platform; nothing
+> the service can do about it. Detect it agent-side via dark-pixel ratio or
+> UI-tree absence.
+
+---
+
 ## Quick try
 
 ```bash
@@ -214,7 +279,9 @@ curl -X POST http://localhost:9889/v1/scroll_to \
 ## Limitations
 
 - Accessibility queries cannot see inside SurfaceView / WebView canvases or
-  custom-drawn games. Phase 3 (screenshots) will help here.
+  custom-drawn games. Phase 3 screenshots show pixels there but no UI tree
+  is available, so the agent must rely on vision-LLM reasoning over the
+  image.
 - Performing `ACTION_CLICK` on a node marked clickable is far more reliable
   than coordinate taps, but a small minority of apps (e.g. games using their
   own input loop) will not respond. Fall back to Phase 1 coordinate gestures.
